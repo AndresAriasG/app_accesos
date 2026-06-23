@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS access_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   full_name VARCHAR(160) NOT NULL,
   company VARCHAR(160) NOT NULL,
-  purpose VARCHAR(250),
+  purpose VARCHAR(250) NOT NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'inside' CHECK (status IN ('inside', 'exited')),
   entry_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   exit_at TIMESTAMPTZ,

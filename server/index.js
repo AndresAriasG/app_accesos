@@ -51,11 +51,12 @@ app.post('/api/entries', async (req, res) => {
   const { full_name, company, purpose, created_by } = req.body
   if (!full_name) return res.status(400).json({ error: 'El nombre es obligatorio' })
   if (!company?.trim()) return res.status(400).json({ error: 'La empresa es obligatoria' })
+  if (!purpose?.trim()) return res.status(400).json({ error: 'El motivo de visita es obligatorio' })
   const { rows } = await pool.query(
     `INSERT INTO access_entries (full_name, company, purpose, created_by)
      VALUES ($1, $2, $3, $4)
      RETURNING id, full_name, company, purpose, status, entry_at`,
-    [full_name, company.trim(), purpose || null, created_by || null],
+    [full_name, company.trim(), purpose.trim(), created_by || null],
   )
   res.status(201).json(rows[0])
 })
