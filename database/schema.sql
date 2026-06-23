@@ -25,12 +25,12 @@ CREATE INDEX IF NOT EXISTS access_entries_entry_at_idx ON access_entries (entry_
 CREATE INDEX IF NOT EXISTS access_entries_status_idx ON access_entries (status);
 
 -- Usuario inicial para el acceso administrativo.
--- Credenciales iniciales: admin@app_accesos.com / Acceso2026!
+-- Credenciales iniciales: admin@appaccesos.com / Acceso2026!
 -- Cambia esta contraseña apenas tengas acceso al panel en producción.
 INSERT INTO users (full_name, email, password_hash, role)
 VALUES (
   'Administrador',
-  'admin@app_accesos.com',
+  'admin@appaccesos.com',
   crypt('Acceso2026!', gen_salt('bf')),
   'admin'
 )
