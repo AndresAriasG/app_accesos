@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS access_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   full_name VARCHAR(160) NOT NULL,
-  company VARCHAR(160),
+  company VARCHAR(160) NOT NULL,
   purpose VARCHAR(250),
   status VARCHAR(20) NOT NULL DEFAULT 'inside' CHECK (status IN ('inside', 'exited')),
   entry_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -24,6 +24,14 @@ CREATE TABLE IF NOT EXISTS access_entries (
 CREATE INDEX IF NOT EXISTS access_entries_entry_at_idx ON access_entries (entry_at DESC);
 CREATE INDEX IF NOT EXISTS access_entries_status_idx ON access_entries (status);
 
--- Usuario de ejemplo. Cambia el hash por uno generado con bcrypt antes de producción.
--- INSERT INTO users (full_name, email, password_hash, role)
--- VALUES ('Administrador', 'admin@empresa.com', 'REEMPLAZAR_CON_HASH_SEGURO', 'admin');
+-- Usuario inicial para el acceso administrativo.
+-- Credenciales iniciales: admin@app_accesos.com / Acceso2026!
+-- Cambia esta contraseña apenas tengas acceso al panel en producción.
+INSERT INTO users (full_name, email, password_hash, role)
+VALUES (
+  'Administrador',
+  'admin@app_accesos.com',
+  crypt('Acceso2026!', gen_salt('bf')),
+  'admin'
+)
+ON CONFLICT (email) DO NOTHING;

@@ -12,7 +12,10 @@ npm run dev
 ## Railway
 
 1. Crea un servicio PostgreSQL en Railway y añade `DATABASE_URL` a las variables del proyecto.
-2. Ejecuta `database/schema.sql` en la consola SQL de Railway.
+2. Ejecuta `database/schema.sql` y luego `database/seed-admin.sql` en la consola SQL de Railway.
+   Si ya ejecutaste el esquema, aplica después `database/migrations/001-company-required.sql`.
 3. Despliega este repositorio. Railway ejecuta `npm run build` y `npm start` automáticamente gracias a `railway.json`.
 
-La API incluye `GET /api/health`, `GET /api/entries` y `POST /api/entries`.
+El script crea el usuario inicial `admin@app_accesos.com` con contraseña `Acceso2026!`. Cámbiala al completar el despliegue.
+
+La API incluye `POST /api/auth/login`, `GET /api/health`, `GET /api/entries` y `POST /api/entries`.

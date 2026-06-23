@@ -20,17 +20,43 @@ app.get('/api/health', async (_req, res) => {
   } catch { res.status(503).json({ status: 'error', database: false }) }
 })
 
+app.post('/api/auth/login', async (req, res) => {
+  if (!pool) return res.status(503).json({ error: 'DATABASE_URL no está configurada' })
+  const { email, password } = req.body
+  if (!email || !password) return res.status(400).json({ error: 'Correo y contraseña son obligatorios' })
+
+  const { rows } = await pool.query(
+    `SELECT id, full_name, email, role
+     FROM users
+     WHERE email = $1 AND password_hash = crypt($2, password_hash)`,
+    [email.toLowerCase(), password],
+  )
+  if (!rows[0]) return res.status(401).json({ error: 'Correo o contraseña incorrectos' })
+  res.json({ user: rows[0] })
+})
+
 app.get('/api/entries', async (_req, res) => {
   if (!pool) return res.json([])
-  const { rows } = await pool.query('SELECT * FROM access_entries ORDER BY entry_at DESC LIMIT 100')
+  const { rows } = await pool.query(`
+    SELECT id, full_name, company, purpose, status, entry_at
+    FROM access_entries
+    ORDER BY entry_at DESC
+    LIMIT 100
+  `)
   res.json(rows)
 })
 
 app.post('/api/entries', async (req, res) => {
   if (!pool) return res.status(503).json({ error: 'DATABASE_URL no está configurada' })
-  const { full_name, company, purpose } = req.body
+  const { full_name, company, purpose, created_by } = req.body
   if (!full_name) return res.status(400).json({ error: 'El nombre es obligatorio' })
-  const { rows } = await pool.query('INSERT INTO access_entries (full_name, company, purpose) VALUES ($1, $2, $3) RETURNING *', [full_name, company || null, purpose || null])
+  if (!company?.trim()) return res.status(400).json({ error: 'La empresa es obligatoria' })
+  const { rows } = await pool.query(
+    `INSERT INTO access_entries (full_name, company, purpose, created_by)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, full_name, company, purpose, status, entry_at`,
+    [full_name, company.trim(), purpose || null, created_by || null],
+  )
   res.status(201).json(rows[0])
 })
 

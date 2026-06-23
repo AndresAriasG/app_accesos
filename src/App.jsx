@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowDownToLine, ArrowUpRight, BarChart3, Bell, Building2, CalendarDays,
   ChevronDown, CircleHelp, Clock3, FileText, Grid2X2, LogOut, Menu,
@@ -20,12 +20,22 @@ const navItems = [
 ]
 
 function Avatar({ initials, tone = 'blue' }) { return <span className={`avatar ${tone}`}>{initials}</span> }
+const toRecord = (entry) => ({
+  id: entry.id,
+  initials: entry.full_name.split(' ').slice(0, 2).map((name) => name[0]).join('').toUpperCase(),
+  name: entry.full_name,
+  company: entry.company || 'Visitante',
+  purpose: entry.purpose || 'Sin especificar',
+  time: new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(entry.entry_at)),
+  status: entry.status === 'inside' ? 'Dentro' : 'Salida',
+})
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [active, setActive] = useState('Resumen')
   const [menu, setMenu] = useState(false)
   const [records, setRecords] = useState(seedRecords)
+  const [user, setUser] = useState(null)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({ name: '', company: '', purpose: '' })
   const [search, setSearch] = useState('')
@@ -33,16 +43,40 @@ function App() {
   const filtered = useMemo(() => records.filter(r => `${r.name} ${r.company}`.toLowerCase().includes(search.toLowerCase())), [records, search])
   const visitorsInside = records.filter(r => r.status === 'Dentro').length
 
-  const saveEntry = (e) => {
-    e.preventDefault()
-    if (!form.name.trim()) return
-    const initials = form.name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
-    const time = new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date())
-    setRecords([{ id: Date.now(), initials, name: form.name, company: form.company || 'Visitante', purpose: form.purpose || 'Sin especificar', time, status: 'Dentro' }, ...records])
-    setForm({ name: '', company: '', purpose: '' }); setModal(false)
+  useEffect(() => {
+    if (!loggedIn) return
+    fetch('/api/entries')
+      .then((response) => response.ok ? response.json() : [])
+      .then((entries) => { if (entries.length) setRecords(entries.map(toRecord)) })
+      .catch(() => {})
+  }, [loggedIn])
+
+  const login = async ({ email, password }) => {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error || 'No fue posible iniciar sesión')
+    setUser(data.user)
+    setLoggedIn(true)
   }
 
-  if (!loggedIn) return <Login onLogin={() => setLoggedIn(true)} />
+  const saveEntry = async (e) => {
+    e.preventDefault()
+    if (!form.name.trim()) return
+    try {
+      const response = await fetch('/api/entries', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_name: form.name, company: form.company, purpose: form.purpose, created_by: user?.id }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'No fue posible guardar la entrada')
+      setRecords([toRecord(data), ...records])
+      setForm({ name: '', company: '', purpose: '' }); setModal(false)
+    } catch (error) { window.alert(error.message) }
+  }
+
+  if (!loggedIn) return <Login onLogin={login} />
 
   return <div className="app-shell">
     <aside className={`sidebar ${menu ? 'open' : ''}`}>
@@ -67,7 +101,7 @@ function App() {
 }
 
 function Kpi({ icon: Icon, label, value, trend, type, note }) { return <article className="kpi"><div className={`kpi-icon ${type}`}><Icon size={20}/></div><div className="kpi-content"><p>{label}</p><h3>{value}</h3><span className={`trend ${type}`}>{type === 'up' && <ArrowUpRight size={13}/>} {trend} {note && <em>{note}</em>}</span></div></article> }
-function Login({ onLogin }) { const [show, setShow] = useState(false); return <div className="login-page"><div className="login-art"><div className="ambient a1"/><div className="ambient a2"/><div className="login-brand"><div className="brand-mark"><ShieldCheck size={21}/></div>acceso<span>.</span></div><div className="login-copy"><p className="eyebrow">BIENVENIDO A ACCESO</p><h1>El control de ingresos,<br/><i>en buenas manos.</i></h1><p>Una manera simple, segura y elegante de gestionar cada entrada a tu organización.</p><div className="login-stats"><div><b>98.4%</b><span>accesos seguros</span></div><div><b>24/7</b><span>información al día</span></div></div></div><p className="login-footer">© 2026 Acceso. Todos los derechos reservados.</p></div><div className="login-form-side"><div className="login-card"><div className="mobile-login-brand"><div className="brand-mark"><ShieldCheck size={19}/></div>acceso<span>.</span></div><div><h2>Inicia sesión</h2><p>Ingresa tus datos para continuar.</p></div><form onSubmit={e => { e.preventDefault(); onLogin() }}><label>Correo electrónico<input type="email" placeholder="nombre@empresa.com" required defaultValue="andres@empresa.com"/></label><label>Contraseña<div className="password"><input type={show ? 'text' : 'password'} placeholder="••••••••" required defaultValue="secreto12"/><button type="button" onClick={() => setShow(!show)}>{show ? 'Ocultar' : 'Mostrar'}</button></div></label><div className="form-options"><label className="remember"><input type="checkbox" defaultChecked/>Recordarme</label><a href="#">¿Olvidaste tu contraseña?</a></div><button className="login-btn">Ingresar al panel <ArrowUpRight size={18}/></button></form><p className="support">¿Necesitas ayuda? <a href="#">Contacta a soporte</a></p></div></div></div> }
-function EntryModal({ form, setForm, onClose, onSave }) { return <div className="modal-backdrop"><form className="entry-modal" onSubmit={onSave}><button type="button" className="modal-close" onClick={onClose}><X size={19}/></button><div className="modal-icon"><ArrowDownToLine size={22}/></div><h2>Registrar entrada</h2><p>Completa los datos del visitante para registrar su acceso.</p><label>Nombre completo<input autoFocus required value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="Ej. María González"/></label><label>Empresa<input value={form.company} onChange={e => setForm({...form, company:e.target.value})} placeholder="Ej. Compañía S.A.S."/></label><label>Motivo de visita<input value={form.purpose} onChange={e => setForm({...form, purpose:e.target.value})} placeholder="Ej. Reunión de trabajo"/></label><div className="modal-actions"><button type="button" onClick={onClose}>Cancelar</button><button className="primary-btn">Guardar entrada</button></div></form></div> }
+function Login({ onLogin }) { const [show, setShow] = useState(false); const [email, setEmail] = useState('admin@app_accesos.com'); const [password, setPassword] = useState('Acceso2026!'); const [error, setError] = useState(''); const [loading, setLoading] = useState(false); const submit = async (e) => { e.preventDefault(); setError(''); setLoading(true); try { await onLogin({ email, password }) } catch (err) { setError(err.message) } finally { setLoading(false) } }; return <div className="login-page"><div className="login-art"><div className="ambient a1"/><div className="ambient a2"/><div className="login-brand"><div className="brand-mark"><ShieldCheck size={21}/></div>acceso<span>.</span></div><div className="login-copy"><p className="eyebrow">BIENVENIDO A ACCESO</p><h1>El control de ingresos,<br/><i>en buenas manos.</i></h1><p>Una manera simple, segura y elegante de gestionar cada entrada a tu organización.</p><div className="login-stats"><div><b>98.4%</b><span>accesos seguros</span></div><div><b>24/7</b><span>información al día</span></div></div></div><p className="login-footer">© 2026 Acceso. Todos los derechos reservados.</p></div><div className="login-form-side"><div className="login-card"><div className="mobile-login-brand"><div className="brand-mark"><ShieldCheck size={19}/></div>acceso<span>.</span></div><div><h2>Inicia sesión</h2><p>Ingresa tus datos para continuar.</p></div><form onSubmit={submit}><label>Correo electrónico<input type="email" placeholder="nombre@empresa.com" required value={email} onChange={e => setEmail(e.target.value)}/></label><label>Contraseña<div className="password"><input type={show ? 'text' : 'password'} placeholder="••••••••" required value={password} onChange={e => setPassword(e.target.value)}/><button type="button" onClick={() => setShow(!show)}>{show ? 'Ocultar' : 'Mostrar'}</button></div></label><div className="form-options"><label className="remember"><input type="checkbox" defaultChecked/>Recordarme</label><a href="#">¿Olvidaste tu contraseña?</a></div>{error && <p className="login-error">{error}</p>}<button className="login-btn" disabled={loading}>{loading ? 'Validando...' : <>Ingresar al panel <ArrowUpRight size={18}/></>}</button></form><p className="support">¿Necesitas ayuda? <a href="#">Contacta a soporte</a></p></div></div></div> }
+function EntryModal({ form, setForm, onClose, onSave }) { return <div className="modal-backdrop"><form className="entry-modal" onSubmit={onSave}><button type="button" className="modal-close" onClick={onClose}><X size={19}/></button><div className="modal-icon"><ArrowDownToLine size={22}/></div><h2>Registrar entrada</h2><p>Completa los datos del visitante para registrar su acceso.</p><label>Nombre completo<input autoFocus required value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="Ej. María González"/></label><label>Empresa <span className="required">*</span><input required value={form.company} onChange={e => setForm({...form, company:e.target.value})} placeholder="Ej. Compañía S.A.S."/></label><label>Motivo de visita<input value={form.purpose} onChange={e => setForm({...form, purpose:e.target.value})} placeholder="Ej. Reunión de trabajo"/></label><div className="modal-actions"><button type="button" onClick={onClose}>Cancelar</button><button className="primary-btn">Guardar entrada</button></div></form></div> }
 
 export default App
